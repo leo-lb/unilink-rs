@@ -4,4 +4,15 @@ version = "0.1.0"
 authors = ["lle-bout"]
 edition = "2018"
 
+[profile.release]
+opt-level = 'z'  # Optimize for size.
+lto = true
+codegen-units = 1
+panic = 'abort'
+
 [dependencies]
+serde = "1.0"
+serde_cbor = "0.9"
+serde_derive = "1.0"
+serde_bytes = "0.10"
+rust_sodium = "0.10"

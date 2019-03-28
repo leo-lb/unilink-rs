@@ -28,8 +28,8 @@ impl<T: Write> MessageWriter for T {
 
         let len_buf = len.to_be_bytes();
 
-        self.write_all(&len_buf);
-        self.write_all(message);
+        self.write_all(&len_buf).map_err(|_| {})?;
+        self.write_all(message).map_err(|_| {})?;
 
         Ok(())
     }

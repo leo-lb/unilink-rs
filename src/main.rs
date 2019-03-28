@@ -1,9 +1,11 @@
-use rust_sodium::crypto::sign::ed25519::{PublicKey, SecretKey};
-use rust_sodium::crypto::sign::gen_keypair;
 use serde_derive::{Deserialize, Serialize};
 use std::fs::File;
 use std::net;
 use std::thread;
+
+mod noise;
+mod noise_pattern;
+mod messaging;
 
 #[derive(Serialize, Deserialize)]
 enum Role {
@@ -16,27 +18,28 @@ enum Role {
 struct Peer {
     role: Role,
     address: net::IpAddr,
+    connection: Option<(net::TcpStream, net::SocketAddr)>,
     port: u16,
-    ed25519_public: PublicKey,
+    //ed25519_public: PublicKey,
 }
 
 #[derive(Serialize, Deserialize)]
 struct Config {
     role: Role,
     port: u16,
-    ed25519_public: PublicKey,
-    ed25519_secret: SecretKey,
+    //ed25519_public: PublicKey,
+    //ed25519_secret: SecretKey,
 }
 
 impl Config {
     fn new() -> Self {
-        let (ed25519_public, ed25519_secret) = gen_keypair();
+        //let (ed25519_public, ed25519_secret) = gen_keypair();
 
         Config {
             role: Role::Client,
             port: 0,
-            ed25519_public,
-            ed25519_secret,
+            //ed25519_public,
+            //ed25519_secret,
         }
     }
 }
@@ -63,9 +66,16 @@ fn main() {
         config.port = listen_address.port();
     }
 
-    /*
-    thread::spawn(move || {
+    loop {
+        match listener.accept() {
+            Ok((stream, address)) => {
+                println!("new client: {:?}", address);
 
-    });
-    */
+                thread::spawn(move || {});
+            }
+            Err(e) => {
+                println!("couldn't get client: {:?}", e);
+            }
+        }
+    }
 }

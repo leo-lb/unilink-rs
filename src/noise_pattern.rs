@@ -10,6 +10,7 @@ Self: std::marker::Sized
     fn pattern() -> &'static str;
     fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
     fn responder<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
+    fn into_inner(self) -> Session; 
 }
 
 #[allow(non_camel_case_types)]
@@ -77,5 +78,10 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
             .map_err(|_| {})?;
 
         Ok(())
+    }
+
+    fn into_inner(self) -> Session
+    {
+        self.noise
     }
 }

@@ -1,32 +1,28 @@
 use crate::messaging::{MessageReader, MessageWriter};
 use snow::Session;
 
-pub trait Pattern<S>
+pub trait Pattern
 where
-    S: MessageReader + MessageWriter,
-    Self: std::marker::Sized,
+Self: std::marker::Sized
 {
-    fn from(stream: S, noise: Session) -> Result<Self, ()>;
+    fn new(noise: Session) -> Result<Self, ()>;
     fn r#type() -> u8;
     fn pattern() -> &'static str;
-    fn initiator(&mut self) -> Result<(), ()>;
-    fn responder(&mut self) -> Result<(), ()>;
+    fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
+    fn responder<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
 }
 
 #[allow(non_camel_case_types)]
-struct Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s<S: MessageReader + MessageWriter> {
-    stream: S,
+pub struct Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
     noise: Session,
 }
 
-impl<S> Pattern<S> for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s<S>
-where
-    S: MessageReader + MessageWriter,
+impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
 {
-    fn from(stream: S, noise: Session) -> Result<Self, ()> {
+    fn new(noise: Session) -> Result<Self, ()> {
         match noise.is_handshake_finished() {
             true => Err(()),
-            false => Ok(Self { stream, noise }),
+            false => Ok(Self { noise }),
         }
     }
 
@@ -38,7 +34,7 @@ where
         "Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s"
     }
 
-    fn initiator(&mut self) -> Result<(), ()> {
+    fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()> {
         if !self.noise.is_initiator() {
             return Err(());
         }
@@ -47,20 +43,20 @@ where
 
         let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
 
-        self.stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|_| {})?;
 
         self.noise
-            .read_message(&self.stream.read_message().map_err(|_| {})?, &mut buf)
+            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
             .map_err(|_| {})?;
 
         let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
 
-        self.stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|_| {})?;
 
         Ok(())
     }
 
-    fn responder(&mut self) -> Result<(), ()> {
+    fn responder<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()> {
         if self.noise.is_initiator() {
             return Err(());
         }
@@ -68,16 +64,16 @@ where
         let mut buf: Vec<u8> = Vec::new();
 
         self.noise
-            .read_message(&self.stream.read_message().map_err(|_| {})?, &mut buf)
+            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
             .map_err(|_| {})?;
 
         let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
 
-        self.stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|_| {})?;
 
 
         self.noise
-            .read_message(&self.stream.read_message().map_err(|_| {})?, &mut buf)
+            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
             .map_err(|_| {})?;
 
         Ok(())

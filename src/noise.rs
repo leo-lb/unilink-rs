@@ -1,8 +1,10 @@
-use crate::messaging::{MessageReader, MessageWriter};
-use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
+use std::io::{self, Read, Write};
+
 use snow::params::NoiseParams;
 use snow::Session;
-use std::io::{self, Read, Write};
+
+use crate::messaging::{MessageReader, MessageWriter};
+use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
 pub struct Noise<S: MessageReader + MessageWriter> {
     stream: S,
@@ -65,24 +67,31 @@ where
     }
 
     pub fn read_decrypt(&mut self) -> Result<Vec<u8>, ()> {
-        let mut buf = Vec::new();
+        let mut ret_buf = Vec::new();
 
-        let len: usize;
-        match self.noise.as_mut() {
-            Some(noise) => {
-                len = noise
-                    .read_message(&self.stream.read_message()?, &mut buf)
-                    .map_err(|_| {})?;
-            }
-            None => {
-                return Err(());
-            }
-        };
+        let message = self.stream.read_message()?;
+        for message in message.chunks(65535) {
+            let mut buf = Vec::new();
 
-        Ok(buf[..len].to_vec())
+            let len: usize;
+            match self.noise.as_mut() {
+                Some(noise) => {
+                    len = noise.read_message(&message, &mut buf).map_err(|_| {})?;
+                }
+                None => {
+                    return Err(());
+                }
+            };
+
+            ret_buf.append(&mut buf[..len].to_vec());
+        }
+
+        Ok(ret_buf)
     }
 
     pub fn write_encrypt(&mut self, message: &mut [u8]) -> Result<(), ()> {
+        let mut send_buf = Vec::new();
+
         for message in message.chunks(65535) {
             let mut buf = Vec::new();
 
@@ -96,8 +105,10 @@ where
                 }
             }
 
-            self.stream.write_message(&buf[..len]).map_err(|_| {})?;
+            send_buf.append(&mut buf[..len].to_vec());
         }
+
+        self.stream.write_message(&send_buf).map_err(|_| {})?;
 
         Ok(())
     }

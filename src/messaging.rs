@@ -10,11 +10,11 @@ pub trait MessageReader {
 
 impl<T: Read> MessageReader for T {
     fn read_message(&mut self) -> Result<Vec<u8>, ()> {
-        let mut len_buf = [0u8; 2];
+        let mut len_buf = [0u8; 4];
 
         self.read_exact(&mut len_buf).map_err(|_| {})?;
 
-        let mut buf = vec![0u8; u16::from_be_bytes(len_buf) as usize];
+        let mut buf = vec![0u8; u32::from_be_bytes(len_buf) as usize];
 
         self.read_exact(&mut buf).map_err(|_| {})?;
 
@@ -23,8 +23,9 @@ impl<T: Read> MessageReader for T {
 }
 
 impl<T: Write> MessageWriter for T {
+    // UNCHECKED!! Cannot send more than 2^32-1 bytes at once
     fn write_message(&mut self, message: &[u8]) -> Result<(), ()> {
-        let len = message.len() as u16;
+        let len = message.len() as u32;
 
         let len_buf = len.to_be_bytes();
 

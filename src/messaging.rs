@@ -1,5 +1,7 @@
 use std::io::{Read, Write};
 
+use snow::Session;
+
 pub trait MessageWriter {
     fn write_message(&mut self, message: &[u8]) -> Result<(), ()>;
 }
@@ -23,8 +25,12 @@ impl<T: Read> MessageReader for T {
 }
 
 impl<T: Write> MessageWriter for T {
-    // UNCHECKED!! Cannot send more than 2^32-1 bytes at once
+    // WARNING!! Cannot write more than 2^32-1 bytes at once
     fn write_message(&mut self, message: &[u8]) -> Result<(), ()> {
+        if message.len() >= std::u32::MAX as usize {
+            return Err(());
+        }
+
         let len = message.len() as u32;
 
         let len_buf = len.to_be_bytes();

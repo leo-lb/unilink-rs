@@ -1,16 +1,19 @@
-use crate::messaging::{MessageReader, MessageWriter};
 use snow::Session;
+
+use crate::messaging::{MessageReader, MessageWriter};
 
 pub trait Pattern
 where
-Self: std::marker::Sized
+    Self: std::marker::Sized,
 {
     fn new(noise: Session) -> Result<Self, ()>;
     fn r#type() -> u8;
     fn pattern() -> &'static str;
+    fn inst_type(&self) -> u8;
+    fn inst_pattern(&self) -> &'static str;
     fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
     fn responder<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
-    fn into_inner(self) -> Session; 
+    fn into_inner(self) -> Session;
 }
 
 #[allow(non_camel_case_types)]
@@ -18,8 +21,7 @@ pub struct Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
     noise: Session,
 }
 
-impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
-{
+impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
     fn new(noise: Session) -> Result<Self, ()> {
         match noise.is_handshake_finished() {
             true => Err(()),
@@ -33,6 +35,14 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
 
     fn pattern() -> &'static str {
         "Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s"
+    }
+
+    fn inst_type(&self) -> u8 {
+        Self::r#type()
+    }
+
+    fn inst_pattern(&self) -> &'static str {
+        Self::pattern()
     }
 
     fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()> {
@@ -72,7 +82,6 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
 
         stream.write_message(&buf[..len]).map_err(|_| {})?;
 
-
         self.noise
             .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
             .map_err(|_| {})?;
@@ -80,8 +89,7 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s
         Ok(())
     }
 
-    fn into_inner(self) -> Session
-    {
+    fn into_inner(self) -> Session {
         self.noise
     }
 }

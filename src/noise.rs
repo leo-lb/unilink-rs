@@ -3,7 +3,6 @@ use std::io::{Read, Write};
 use snow::{Session, Session::Transport};
 
 use crate::messaging::{MessageReader, MessageWriter};
-use crate::noise_pattern::Pattern;
 
 pub struct Noise<S: MessageReader + MessageWriter> {
     stream: S,
@@ -33,7 +32,7 @@ where
 
         let message = self.stream.read_message()?;
         for message in message.chunks(65535) {
-            let mut buf = Vec::new();
+            let mut buf = vec![0u8; 65535];
 
             let len = self
                 .noise
@@ -55,7 +54,7 @@ where
         let mut send_buf = Vec::new();
 
         for message in message.chunks(65535) {
-            let mut buf = Vec::new();
+            let mut buf = vec![0u8; 65535];
 
             let len = self
                 .noise

@@ -49,11 +49,15 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
     fn new_noise(private: &[u8], initiator: bool) -> Result<Session, ()> {
         let b = snow::Builder::new(Self::pattern().parse().unwrap())
             .local_private_key(private)
-            .psk(3, b"Test PSK");
+            .psk(3, b"01234567890123456789012345678901");
 
         match initiator {
-            true => b.build_initiator().map_err(|_| {}),
-            false => b.build_responder().map_err(|_| {}),
+            true => b.build_initiator().map_err(|e| {
+                eprintln!("{:#?}", e);
+            }),
+            false => b.build_responder().map_err(|e| {
+                eprintln!("{:#?}", e);
+            }),
         }
     }
 
@@ -62,19 +66,34 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
             return Err(());
         }
 
-        let mut buf: Vec<u8> = Vec::new();
+        let mut buf = vec![0u8; 65535];
 
-        let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
+        let len = self.noise.write_message(&[], &mut buf).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
-        stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
         self.noise
-            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
-            .map_err(|_| {})?;
+            .read_message(
+                &stream.read_message().map_err(|e| {
+                    eprintln!("{:#?}", e);
+                })?,
+                &mut buf,
+            )
+            .map_err(|e| {
+                eprintln!("{:#?}", e);
+            })?;
 
-        let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
+        let len = self.noise.write_message(&[], &mut buf).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
-        stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
         Ok(())
     }
@@ -84,19 +103,37 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
             return Err(());
         }
 
-        let mut buf: Vec<u8> = Vec::new();
+        let mut buf = vec![0u8; 65535];
 
         self.noise
-            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
-            .map_err(|_| {})?;
+            .read_message(
+                &stream.read_message().map_err(|e| {
+                    eprintln!("{:#?}", e);
+                })?,
+                &mut buf,
+            )
+            .map_err(|e| {
+                eprintln!("{:#?}", e);
+            })?;
 
-        let len = self.noise.write_message(&[], &mut buf).map_err(|_| {})?;
+        let len = self.noise.write_message(&[], &mut buf).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
-        stream.write_message(&buf[..len]).map_err(|_| {})?;
+        stream.write_message(&buf[..len]).map_err(|e| {
+            eprintln!("{:#?}", e);
+        })?;
 
         self.noise
-            .read_message(&stream.read_message().map_err(|_| {})?, &mut buf)
-            .map_err(|_| {})?;
+            .read_message(
+                &stream.read_message().map_err(|e| {
+                    eprintln!("{:#?}", e);
+                })?,
+                &mut buf,
+            )
+            .map_err(|e| {
+                eprintln!("{:#?}", e);
+            })?;
 
         Ok(())
     }

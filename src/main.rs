@@ -6,7 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
-use crate::messaging::MessageReader;
+use crate::messaging::{MessageReader, MessageWriter};
 
 mod messaging;
 mod noise;
@@ -89,9 +89,48 @@ fn main() {
         Err(_) => Config::new(),
     };
 
+    let args: Vec<String> = std::env::args().collect();
+
+    if args.len() > 1 {
+        let peer = &args[1];
+
+        let mut stream = net::TcpStream::connect(peer).unwrap();
+
+        let noise = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new_noise(&config.keypair.private, true)
+            .unwrap();
+
+        let mut pattern = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new(noise).unwrap();
+
+        pattern.initiator(&mut stream).unwrap();
+
+        let noise = pattern.into_inner();
+
+        let mut noise =
+            crate::noise::Noise::from(noise.into_transport_mode().unwrap(), &mut stream);
+
+        loop {
+            let mut buf = String::new();
+            std::io::stdin().read_line(&mut buf).unwrap();
+
+            let message = UnilinkHeader {
+                r#type: 0,
+                data: Vec::new(),
+            };
+
+            noise
+                .write_message(&serde_cbor::to_vec(&message).unwrap())
+                .unwrap();
+
+            let message: UnilinkHeader =
+                serde_cbor::from_slice(&noise.read_message().unwrap()).unwrap();
+
+            println!("{:#?}", message);
+        }
+    }
+
     let listener = net::TcpListener::bind(net::SocketAddrV6::new(
         net::Ipv6Addr::UNSPECIFIED,
-        config.port,
+        3333, /* config.port */
         0,
         0,
     ))
@@ -102,6 +141,8 @@ fn main() {
     if config.port == 0 {
         config.port = listen_address.port();
     }
+
+    println!("listening on port {}", config.port);
 
     loop {
         match listener.accept() {
@@ -116,19 +157,27 @@ fn main() {
                         false,
                     )
                     .unwrap();
+
                     let mut pattern = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new(noise).unwrap();
 
                     pattern.responder(&mut stream).unwrap();
 
                     let noise = pattern.into_inner();
 
-                    let mut noise = crate::noise::Noise::from(noise, &mut stream);
+                    let mut noise = crate::noise::Noise::from(
+                        noise.into_transport_mode().unwrap(),
+                        &mut stream,
+                    );
 
                     loop {
                         let message: UnilinkHeader =
                             serde_cbor::from_slice(&noise.read_message().unwrap()).unwrap();
 
                         println!("{:#?}", message);
+
+                        noise
+                            .write_message(&serde_cbor::to_vec(&message).unwrap())
+                            .unwrap();
                     }
                 });
             }

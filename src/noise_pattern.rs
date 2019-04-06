@@ -1,9 +1,10 @@
-use snow::{Session, params::NoiseParams};
+use snow::Session;
 
 use crate::messaging::{MessageReader, MessageWriter};
 
 pub trait Pattern
-where Self: std::marker::Sized
+where
+    Self: std::marker::Sized,
 {
     fn new(noise: Session) -> Result<Self, ()>;
     fn r#type() -> u8;
@@ -45,14 +46,14 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
         Self::pattern()
     }
 
-    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, ()>{
+    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, ()> {
         let b = snow::Builder::new(Self::pattern().parse().unwrap())
-        .local_private_key(private)
-        .psk(3, b"Test PSK");
+            .local_private_key(private)
+            .psk(3, b"Test PSK");
 
         match initiator {
             true => b.build_initiator().map_err(|_| {}),
-            false => b.build_responder().map_err(|_| {})
+            false => b.build_responder().map_err(|_| {}),
         }
     }
 

@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fs::File;
 use std::net;
 use std::thread;
@@ -7,7 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 
 use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
-use crate::messaging::{MessageReader, MessageWriter};
+use crate::messaging::MessageReader;
 
 mod messaging;
 mod noise;

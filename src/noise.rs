@@ -2,9 +2,8 @@ use std::io::{Read, Write};
 
 use snow::{Session, Session::Transport};
 
-
 use crate::messaging::{MessageReader, MessageWriter};
-use crate::noise_pattern::{Pattern};
+use crate::noise_pattern::Pattern;
 
 pub struct Noise<S: MessageReader + MessageWriter> {
     stream: S,
@@ -26,8 +25,8 @@ where
 }
 
 impl<S> MessageReader for Noise<S>
-    where
-        S: Read + Write,
+where
+    S: Read + Write,
 {
     fn read_message(&mut self) -> Result<Vec<u8>, ()> {
         let mut ret_buf = Vec::new();
@@ -49,8 +48,8 @@ impl<S> MessageReader for Noise<S>
 }
 
 impl<S> MessageWriter for Noise<S>
-    where
-        S: Read + Write,
+where
+    S: Read + Write,
 {
     fn write_message(&mut self, message: &[u8]) -> Result<(), ()> {
         let mut send_buf = Vec::new();

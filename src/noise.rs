@@ -1,10 +1,10 @@
-use std::io::{self, Read, Write};
+use std::io::{Read, Write};
 
 use snow::{Session, Session::Transport};
-use snow::params::NoiseParams;
+
 
 use crate::messaging::{MessageReader, MessageWriter};
-use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
+use crate::noise_pattern::{Pattern};
 
 pub struct Noise<S: MessageReader + MessageWriter> {
     stream: S,
@@ -17,7 +17,7 @@ where
 {
     pub fn from(noise: Session, stream: S) -> Self {
         let noise = match noise {
-            Transport(TransportState) => Transport(TransportState),
+            Transport(transport_state) => Transport(transport_state),
             _ => Err("Session should be in transport mode").unwrap(),
         };
 

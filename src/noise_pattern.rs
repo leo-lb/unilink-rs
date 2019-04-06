@@ -1,16 +1,16 @@
-use snow::Session;
+use snow::{Session, params::NoiseParams};
 
 use crate::messaging::{MessageReader, MessageWriter};
 
 pub trait Pattern
-where
-    Self: std::marker::Sized,
+where Self: std::marker::Sized
 {
     fn new(noise: Session) -> Result<Self, ()>;
     fn r#type() -> u8;
     fn pattern() -> &'static str;
     fn inst_type(&self) -> u8;
     fn inst_pattern(&self) -> &'static str;
+    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, ()>;
     fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
     fn responder<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()>;
     fn into_inner(self) -> Session;
@@ -43,6 +43,17 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
 
     fn inst_pattern(&self) -> &'static str {
         Self::pattern()
+    }
+
+    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, ()>{
+        let b = snow::Builder::new(Self::pattern().parse().unwrap())
+        .local_private_key(private)
+        .psk(3, b"Test PSK");
+
+        match initiator {
+            true => b.build_initiator().map_err(|_| {}),
+            false => b.build_responder().map_err(|_| {})
+        }
     }
 
     fn initiator<S: MessageReader + MessageWriter>(&mut self, stream: &mut S) -> Result<(), ()> {

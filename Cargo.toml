@@ -13,4 +13,4 @@ incremental = false
 
 [dependencies]
 miniserde = "0.1"
-snow = "0.5"
+snow = { git = "https://github.com/mcginty/snow.git" }

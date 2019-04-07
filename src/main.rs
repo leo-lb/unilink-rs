@@ -7,11 +7,12 @@ use miniserde::{json, Deserialize, Serialize};
 
 use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
-use crate::messaging::{MessageReader, MessageWriter};
+use crate::message::{MessageReader, MessageWriter};
 
-mod messaging;
+mod message;
 mod noise;
 mod noise_pattern;
+mod error;
 
 /* #[derive(Serialize, Deserialize, Clone)]
 enum Role {
@@ -78,8 +79,8 @@ impl Config {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct UnilinkHeader {
-    r#type: u16,
-    data: Vec<u8>,
+    t: u16,
+    d: String,
 }
 
 const CBOR_DATABASE: &str = "store.cbor";
@@ -118,8 +119,8 @@ fn main() {
             std::io::stdin().read_line(&mut buf).unwrap();
 
             let message = UnilinkHeader {
-                r#type: 0,
-                data: Vec::new(),
+                t: 0,
+                d: String::new(),
             };
 
             noise

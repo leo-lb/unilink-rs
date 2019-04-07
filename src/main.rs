@@ -1,8 +1,9 @@
 use std::fs::File;
+use std::io::prelude::*;
 use std::net;
 use std::thread;
 
-use serde_derive::{Deserialize, Serialize};
+use miniserde::{json, Deserialize, Serialize};
 
 use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
@@ -12,16 +13,16 @@ mod messaging;
 mod noise;
 mod noise_pattern;
 
-#[derive(Serialize, Deserialize, Clone)]
+/* #[derive(Serialize, Deserialize, Clone)]
 enum Role {
     Client = 0,
     Node = 1,
     Bridge = 2,
     Master = 3,
-}
+} */
 
 struct Peer {
-    role: Role,
+    role: u8,
     address: net::IpAddr,
     connection: Option<(net::TcpStream, net::SocketAddr)>,
     port: u16,
@@ -54,7 +55,7 @@ impl From<snow::Keypair> for Keypair {
 
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
-    role: Role,
+    role: u8,
     port: u16,
     keypair: Keypair,
 }
@@ -68,7 +69,7 @@ impl Config {
         );
 
         Config {
-            role: Role::Client,
+            role: 0,
             port: 0,
             keypair: noise.generate_keypair().unwrap().into(),
         }
@@ -85,7 +86,11 @@ const CBOR_DATABASE: &str = "store.cbor";
 
 fn main() {
     let mut config: Config = match File::open(CBOR_DATABASE) {
-        Ok(file) => serde_cbor::from_reader(file).unwrap(),
+        Ok(mut file) => {
+            let mut buf = String::new();
+            file.read_to_string(&mut buf).unwrap();
+            json::from_str(&buf).unwrap()
+        }
         Err(_) => Config::new(),
     };
 
@@ -118,11 +123,11 @@ fn main() {
             };
 
             noise
-                .write_message(&serde_cbor::to_vec(&message).unwrap())
+                .write_message(&json::to_string(&message).as_bytes())
                 .unwrap();
 
             let message: UnilinkHeader =
-                serde_cbor::from_slice(&noise.read_message().unwrap()).unwrap();
+                json::from_str(&String::from_utf8_lossy(&noise.read_message().unwrap())).unwrap();
 
             println!("{:#?}", message);
         }
@@ -170,13 +175,15 @@ fn main() {
                     );
 
                     loop {
-                        let message: UnilinkHeader =
-                            serde_cbor::from_slice(&noise.read_message().unwrap()).unwrap();
+                        let message: UnilinkHeader = json::from_str(&String::from_utf8_lossy(
+                            &noise.read_message().unwrap(),
+                        ))
+                        .unwrap();
 
                         println!("{:#?}", message);
 
                         noise
-                            .write_message(&serde_cbor::to_vec(&message).unwrap())
+                            .write_message(&json::to_string(&message).as_bytes())
                             .unwrap();
                     }
                 });

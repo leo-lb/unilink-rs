@@ -12,7 +12,5 @@ panic = 'abort'
 incremental = false
 
 [dependencies]
-serde = "1.0"
-serde_cbor = "0.9"
-serde_derive = "1.0"
+miniserde = "0.1"
 snow = "0.5"

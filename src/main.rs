@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::net;
+use std::sync::{Arc, Mutex};
 use std::thread;
 
 use miniserde::{json, Deserialize, Serialize};
@@ -9,10 +11,12 @@ use crate::noise_pattern::{Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s, Pattern};
 
 use crate::message::{MessageReader, MessageWriter};
 
+mod commands;
+mod error;
+mod link;
 mod message;
 mod noise;
 mod noise_pattern;
-mod error;
 
 /* #[derive(Serialize, Deserialize, Clone)]
 enum Role {
@@ -79,14 +83,24 @@ impl Config {
 
 #[derive(Serialize, Deserialize, Debug)]
 struct UnilinkHeader {
-    t: u16,
-    d: String,
+    #[serde(rename = "w")]
+    way: bool,
+
+    #[serde(rename = "t")]
+    tag: u8,
+
+    #[serde(rename = "k")]
+    kind: u16,
+
+    #[serde(rename = "d")]
+    data: String,
 }
 
-const CBOR_DATABASE: &str = "store.cbor";
+const JSON_DATABASE: &str = "store.json";
+const PSK: &[u8; 32] = b"01234567890123456798012345678901";
 
 fn main() {
-    let mut config: Config = match File::open(CBOR_DATABASE) {
+    let mut config: Config = match File::open(JSON_DATABASE) {
         Ok(mut file) => {
             let mut buf = String::new();
             file.read_to_string(&mut buf).unwrap();
@@ -95,15 +109,20 @@ fn main() {
         Err(_) => Config::new(),
     };
 
+    let mut links: Arc<Mutex<HashMap<(net::IpAddr, u16), link::Link>>> =
+        Arc::new(Mutex::new(HashMap::new()));
+
     let args: Vec<String> = std::env::args().collect();
 
+    /*
     if args.len() > 1 {
         let peer = &args[1];
 
         let mut stream = net::TcpStream::connect(peer).unwrap();
 
-        let noise = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new_noise(&config.keypair.private, true)
-            .unwrap();
+        let noise =
+            Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new_noise(&config.keypair.private, PSK, true)
+                .unwrap();
 
         let mut pattern = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new(noise).unwrap();
 
@@ -113,26 +132,7 @@ fn main() {
 
         let mut noise =
             crate::noise::Noise::from(noise.into_transport_mode().unwrap(), &mut stream);
-
-        loop {
-            let mut buf = String::new();
-            std::io::stdin().read_line(&mut buf).unwrap();
-
-            let message = UnilinkHeader {
-                t: 0,
-                d: String::new(),
-            };
-
-            noise
-                .write_message(&json::to_string(&message).as_bytes())
-                .unwrap();
-
-            let message: UnilinkHeader =
-                json::from_str(&String::from_utf8_lossy(&noise.read_message().unwrap())).unwrap();
-
-            println!("{:#?}", message);
-        }
-    }
+    } */
 
     let listener = net::TcpListener::bind(net::SocketAddrV6::new(
         net::Ipv6Addr::UNSPECIFIED,
@@ -156,10 +156,12 @@ fn main() {
                 println!("new client: {:?}", address);
 
                 let config = config.clone();
+                let links = links.clone();
 
                 thread::spawn(move || {
                     let noise = Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s::new_noise(
                         &config.keypair.private,
+                        PSK,
                         false,
                     )
                     .unwrap();
@@ -170,22 +172,63 @@ fn main() {
 
                     let noise = pattern.into_inner();
 
-                    let mut noise = crate::noise::Noise::from(
-                        noise.into_transport_mode().unwrap(),
-                        &mut stream,
+                    let mut noisy_stream =
+                        crate::noise::Noise::from(noise.into_transport_mode().unwrap(), stream);
+
+                    let (send, local_recv) = std::sync::mpsc::channel::<Vec<u8>>();
+                    let (local_send, recv) = std::sync::mpsc::channel::<Vec<u8>>();
+
+                    links.lock().unwrap().insert(
+                        (address.ip(), address.port()),
+                        link::Link {
+                            send,
+                            recv,
+                            tagged_io: HashMap::new(),
+                            thread: std::thread::current(),
+                        },
                     );
 
                     loop {
-                        let message: UnilinkHeader = json::from_str(&String::from_utf8_lossy(
-                            &noise.read_message().unwrap(),
-                        ))
-                        .unwrap();
+                        match noisy_stream.read_message() {
+                            Ok(message) => {
+                                let links = links.clone();
 
-                        println!("{:#?}", message);
+                                let s = String::from_utf8(message.clone()).unwrap();
+                                let header: UnilinkHeader = json::from_str(&s).unwrap();
 
-                        noise
-                            .write_message(&json::to_string(&message).as_bytes())
-                            .unwrap();
+                                if header.way == true {
+                                    if let Some((sender, receiver)) = links
+                                        .lock()
+                                        .unwrap()
+                                        .get(&(address.ip(), address.port()))
+                                        .unwrap()
+                                        .tagged_io
+                                        .get(&header.tag)
+                                    {
+                                        sender.send(message).unwrap();
+                                    } else {
+                                        noisy_stream
+                                            .write_message(
+                                                json::to_string(&UnilinkHeader {
+                                                    tag: header.tag,
+                                                    way: !header.way,
+                                                    data: String::new(),
+                                                    kind: 0,
+                                                })
+                                                .as_bytes(),
+                                            )
+                                            .unwrap();
+                                    }
+                                }
+                            }
+                            Err(error) => {
+                                eprintln!("{:#?}", error);
+                                links
+                                    .lock()
+                                    .unwrap()
+                                    .remove(&(address.ip(), address.port()));
+                            }
+                        }
                     }
                 });
             }

@@ -38,8 +38,8 @@ impl fmt::Display for Error {
         use Error::*;
 
         match self {
-            Message(reason) => write!(f, "{:?}", reason),
-            Pattern(reason) => write!(f, "{:?}", reason),
+            Message(reason) => write!(f, "message error: {:?}", reason),
+            Pattern(reason) => write!(f, "pattern error: {:?}", reason),
             __Nonexhaustive => write!(f, "Nonexhaustive"),
         }
     }

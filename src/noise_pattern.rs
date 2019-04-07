@@ -13,7 +13,11 @@ where
     fn pattern() -> &'static str;
     fn inst_type(&self) -> u8;
     fn inst_pattern(&self) -> &'static str;
-    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, Box<dyn StdError>>;
+    fn new_noise(
+        private: &[u8],
+        psk: &[u8; 32],
+        initiator: bool,
+    ) -> Result<Session, Box<dyn StdError>>;
     fn initiator<S: MessageReader + MessageWriter>(
         &mut self,
         stream: &mut S,
@@ -54,10 +58,14 @@ impl Pattern for Noise_XXpsk3_25519_ChaChaPoly_BLAKE2s {
         Self::pattern()
     }
 
-    fn new_noise(private: &[u8], initiator: bool) -> Result<Session, Box<dyn StdError>> {
+    fn new_noise(
+        private: &[u8],
+        psk: &[u8; 32],
+        initiator: bool,
+    ) -> Result<Session, Box<dyn StdError>> {
         let b = snow::Builder::new(Self::pattern().parse().unwrap())
             .local_private_key(private)
-            .psk(3, b"01234567890123456789012345678901");
+            .psk(3, psk);
 
         Ok(match initiator {
             true => b.build_initiator()?,
